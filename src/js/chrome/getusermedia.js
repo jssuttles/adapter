@@ -10,7 +10,10 @@
 var logging = require('../utils.js').log;
 
 // Expose public methods.
-module.exports = function() {
+module.exports = function(nav) {
+  if (nav) {
+    navigator = nav;
+  }
   var constraintsToChrome_ = function(c) {
     if (typeof c !== 'object' || c.mandatory || c.optional) {
       return c;

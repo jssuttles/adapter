@@ -11,7 +11,10 @@ var logging = require('../utils.js').log;
 var browserDetails = require('../utils.js').browserDetails;
 
 var chromeShim = {
-  shimOnTrack: function() {
+  shimOnTrack: function(win) {
+    if (win) {
+      window = win;
+    }
     if (typeof window === 'object' && window.RTCPeerConnection && !('ontrack' in
         window.RTCPeerConnection.prototype)) {
       Object.defineProperty(window.RTCPeerConnection.prototype, 'ontrack', {
@@ -48,7 +51,10 @@ var chromeShim = {
     }
   },
 
-  shimSourceObject: function() {
+  shimSourceObject: function(win) {
+    if (win) {
+      window = win;
+    }
     if (typeof window === 'object') {
       if (window.HTMLMediaElement &&
         !('srcObject' in window.HTMLMediaElement.prototype)) {
@@ -90,123 +96,128 @@ var chromeShim = {
     }
   },
 
-  shimPeerConnection: function() {
-    // The RTCPeerConnection object.
-    window.RTCPeerConnection = function(pcConfig, pcConstraints) {
-      // Translate iceTransportPolicy to iceTransports,
-      // see https://code.google.com/p/webrtc/issues/detail?id=4869
-      logging('PeerConnection');
-      if (pcConfig && pcConfig.iceTransportPolicy) {
-        pcConfig.iceTransports = pcConfig.iceTransportPolicy;
-      }
-
-      var pc = new webkitRTCPeerConnection(pcConfig, pcConstraints);
-      var origGetStats = pc.getStats.bind(pc);
-      pc.getStats = function(selector, successCallback, errorCallback) {
-        var self = this;
-        var args = arguments;
-
-        // If selector is a function then we are in the old style stats so just
-        // pass back the original getStats format to avoid breaking old users.
-        if (arguments.length > 0 && typeof selector === 'function') {
-          return origGetStats(selector, successCallback);
+  shimPeerConnection: function(win) {
+    if (win) {
+      window = win;
+    }
+    if (typeof window === 'object') {
+      // The RTCPeerConnection object.
+      window.RTCPeerConnection = function(pcConfig, pcConstraints) {
+        // Translate iceTransportPolicy to iceTransports,
+        // see https://code.google.com/p/webrtc/issues/detail?id=4869
+        logging('PeerConnection');
+        if (pcConfig && pcConfig.iceTransportPolicy) {
+          pcConfig.iceTransports = pcConfig.iceTransportPolicy;
         }
 
-        var fixChromeStats_ = function(response) {
-          var standardReport = {};
-          var reports = response.result();
-          reports.forEach(function(report) {
-            var standardStats = {
-              id: report.id,
-              timestamp: report.timestamp,
-              type: report.type
-            };
-            report.names().forEach(function(name) {
-              standardStats[name] = report.stat(name);
-            });
-            standardReport[standardStats.id] = standardStats;
-          });
+        var pc = new webkitRTCPeerConnection(pcConfig, pcConstraints);
+        var origGetStats = pc.getStats.bind(pc);
+        pc.getStats = function(selector, successCallback, errorCallback) {
+          var self = this;
+          var args = arguments;
 
-          return standardReport;
+          // If selector is a function then we are in the old style stats so just
+          // pass back the original getStats format to avoid breaking old users.
+          if (arguments.length > 0 && typeof selector === 'function') {
+            return origGetStats(selector, successCallback);
+          }
+
+          var fixChromeStats_ = function(response) {
+            var standardReport = {};
+            var reports = response.result();
+            reports.forEach(function(report) {
+              var standardStats = {
+                id: report.id,
+                timestamp: report.timestamp,
+                type: report.type
+              };
+              report.names().forEach(function(name) {
+                standardStats[name] = report.stat(name);
+              });
+              standardReport[standardStats.id] = standardStats;
+            });
+
+            return standardReport;
+          };
+
+          if (arguments.length >= 2) {
+            var successCallbackWrapper_ = function(response) {
+              args[1](fixChromeStats_(response));
+            };
+
+            return origGetStats.apply(this, [successCallbackWrapper_,
+                arguments[0]]);
+          }
+
+          // promise-support
+          return new Promise(function(resolve, reject) {
+            if (args.length === 1 && typeof selector === 'object') {
+              origGetStats.apply(self,
+                  [function(response) {
+                    resolve.apply(null, [fixChromeStats_(response)]);
+                  }, reject]);
+            } else {
+              origGetStats.apply(self, [resolve, reject]);
+            }
+          });
         };
 
-        if (arguments.length >= 2) {
-          var successCallbackWrapper_ = function(response) {
-            args[1](fixChromeStats_(response));
-          };
+        return pc;
+      };
+      window.RTCPeerConnection.prototype = webkitRTCPeerConnection.prototype;
 
-          return origGetStats.apply(this, [successCallbackWrapper_,
-              arguments[0]]);
-        }
-
-        // promise-support
-        return new Promise(function(resolve, reject) {
-          if (args.length === 1 && typeof selector === 'object') {
-            origGetStats.apply(self,
-                [function(response) {
-                  resolve.apply(null, [fixChromeStats_(response)]);
-                }, reject]);
-          } else {
-            origGetStats.apply(self, [resolve, reject]);
+      // wrap static methods. Currently just generateCertificate.
+      if (webkitRTCPeerConnection.generateCertificate) {
+        Object.defineProperty(window.RTCPeerConnection, 'generateCertificate', {
+          get: function() {
+            return webkitRTCPeerConnection.generateCertificate;
           }
         });
-      };
+      }
 
-      return pc;
-    };
-    window.RTCPeerConnection.prototype = webkitRTCPeerConnection.prototype;
-
-    // wrap static methods. Currently just generateCertificate.
-    if (webkitRTCPeerConnection.generateCertificate) {
-      Object.defineProperty(window.RTCPeerConnection, 'generateCertificate', {
-        get: function() {
-          return webkitRTCPeerConnection.generateCertificate;
-        }
-      });
-    }
-
-    // add promise support
-    ['createOffer', 'createAnswer'].forEach(function(method) {
-      var nativeMethod = webkitRTCPeerConnection.prototype[method];
-      webkitRTCPeerConnection.prototype[method] = function() {
-        var self = this;
-        if (arguments.length < 1 || (arguments.length === 1 &&
-            typeof(arguments[0]) === 'object')) {
-          var opts = arguments.length === 1 ? arguments[0] : undefined;
-          return new Promise(function(resolve, reject) {
-            nativeMethod.apply(self, [resolve, reject, opts]);
-          });
-        }
-        return nativeMethod.apply(this, arguments);
-      };
-    });
-
-    ['setLocalDescription', 'setRemoteDescription', 'addIceCandidate']
-        .forEach(function(method) {
-          var nativeMethod = webkitRTCPeerConnection.prototype[method];
-          webkitRTCPeerConnection.prototype[method] = function() {
-            var args = arguments;
-            var self = this;
-            args[0] = new ((method === 'addIceCandidate')?
-                RTCIceCandidate : RTCSessionDescription)(args[0]);
+      // add promise support
+      ['createOffer', 'createAnswer'].forEach(function(method) {
+        var nativeMethod = webkitRTCPeerConnection.prototype[method];
+        webkitRTCPeerConnection.prototype[method] = function() {
+          var self = this;
+          if (arguments.length < 1 || (arguments.length === 1 &&
+              typeof(arguments[0]) === 'object')) {
+            var opts = arguments.length === 1 ? arguments[0] : undefined;
             return new Promise(function(resolve, reject) {
-              nativeMethod.apply(self, [args[0],
-                  function() {
-                    resolve();
-                    if (args.length >= 2) {
-                      args[1].apply(null, []);
-                    }
-                  },
-                  function(err) {
-                    reject(err);
-                    if (args.length >= 3) {
-                      args[2].apply(null, [err]);
-                    }
-                  }]
-                );
+              nativeMethod.apply(self, [resolve, reject, opts]);
             });
-          };
-        });
+          }
+          return nativeMethod.apply(this, arguments);
+        };
+      });
+
+      ['setLocalDescription', 'setRemoteDescription', 'addIceCandidate']
+          .forEach(function(method) {
+            var nativeMethod = webkitRTCPeerConnection.prototype[method];
+            webkitRTCPeerConnection.prototype[method] = function() {
+              var args = arguments;
+              var self = this;
+              args[0] = new ((method === 'addIceCandidate')?
+                  RTCIceCandidate : RTCSessionDescription)(args[0]);
+              return new Promise(function(resolve, reject) {
+                nativeMethod.apply(self, [args[0],
+                    function() {
+                      resolve();
+                      if (args.length >= 2) {
+                        args[1].apply(null, []);
+                      }
+                    },
+                    function(err) {
+                      reject(err);
+                      if (args.length >= 3) {
+                        args[2].apply(null, [err]);
+                      }
+                    }]
+                  );
+              });
+            };
+          });
+    }
   },
 
   // Attach a media stream to an element.

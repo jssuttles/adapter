@@ -10,7 +10,7 @@
 'use strict';
 
 // Shimming starts here.
-function initShim(win, nav) {
+(function() {
   // Utils.
   var logging = require('./utils').log;
   var browserDetails = require('./utils').browserDetails;
@@ -43,17 +43,10 @@ function initShim(win, nav) {
       // Export to the adapter global object visible in the browser.
       module.exports.browserShim = chromeShim;
 
-      if (win && nav) {
-        chromeShim.shimGetUserMedia(nav);
-        chromeShim.shimSourceObject(win);
-        chromeShim.shimPeerConnection(win);
-        chromeShim.shimOnTrack(win);
-      } else {
-        chromeShim.shimGetUserMedia();
-        chromeShim.shimSourceObject();
-        chromeShim.shimPeerConnection();
-        chromeShim.shimOnTrack();
-      }
+      chromeShim.shimGetUserMedia();
+      chromeShim.shimSourceObject();
+      chromeShim.shimPeerConnection();
+      chromeShim.shimOnTrack();
       break;
     case 'firefox':
       if (!firefoxShim || !firefoxShim.shimPeerConnection) {
@@ -94,10 +87,4 @@ function initShim(win, nav) {
     default:
       logging('Unsupported browser!');
   }
-}
-
-if (typeof window === 'object' && typeof navigator === 'object') {
-  initShim(window, navigator);
-} else {
-  module.exports.initShim = initShim;
-}
+})();

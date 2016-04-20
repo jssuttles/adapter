@@ -96,8 +96,8 @@ function initShim(win, nav) {
   }
 }
 
-if (typeof window === 'object') {
-  initShim();
+if (typeof window === 'object' && typeof navigator === 'object') {
+  initShim(window, navigator);
 } else {
   module.exports.initShim = initShim;
 }

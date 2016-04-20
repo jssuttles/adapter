@@ -12,12 +12,12 @@ var browserDetails = require('../utils.js').browserDetails;
 
 var chromeShim = {
   shimOnTrack: function(win) {
-    if (win) {
-      window = win;
+    if (!win && window) {
+      win = window;
     }
-    if (typeof window === 'object' && window.RTCPeerConnection && !('ontrack' in
-        window.RTCPeerConnection.prototype)) {
-      Object.defineProperty(window.RTCPeerConnection.prototype, 'ontrack', {
+    if (typeof win === 'object' && win.RTCPeerConnection && !('ontrack' in
+        win.RTCPeerConnection.prototype)) {
+      Object.defineProperty(win.RTCPeerConnection.prototype, 'ontrack', {
         get: function() {
           return this._ontrack;
         },
@@ -52,14 +52,14 @@ var chromeShim = {
   },
 
   shimSourceObject: function(win) {
-    if (win) {
-      window = win;
+    if (!win && window) {
+      win = window;
     }
-    if (typeof window === 'object') {
-      if (window.HTMLMediaElement &&
-        !('srcObject' in window.HTMLMediaElement.prototype)) {
+    if (typeof win === 'object') {
+      if (win.HTMLMediaElement &&
+        !('srcObject' in win.HTMLMediaElement.prototype)) {
         // Shim the srcObject property, once, when HTMLMediaElement is found.
-        Object.defineProperty(window.HTMLMediaElement.prototype, 'srcObject', {
+        Object.defineProperty(win.HTMLMediaElement.prototype, 'srcObject', {
           get: function() {
             return this._srcObject;
           },
@@ -97,12 +97,12 @@ var chromeShim = {
   },
 
   shimPeerConnection: function(win) {
-    if (win) {
-      window = win;
+    if (!win && window) {
+      win = window;
     }
-    if (typeof window === 'object') {
+    if (typeof win === 'object') {
       // The RTCPeerConnection object.
-      window.RTCPeerConnection = function(pcConfig, pcConstraints) {
+      win.RTCPeerConnection = function(pcConfig, pcConstraints) {
         // Translate iceTransportPolicy to iceTransports,
         // see https://code.google.com/p/webrtc/issues/detail?id=4869
         logging('PeerConnection');
@@ -116,7 +116,8 @@ var chromeShim = {
           var self = this;
           var args = arguments;
 
-          // If selector is a function then we are in the old style stats so just
+          // If selector is a function
+          // then we are in the old style stats so just
           // pass back the original getStats format to avoid breaking old users.
           if (arguments.length > 0 && typeof selector === 'function') {
             return origGetStats(selector, successCallback);
@@ -164,11 +165,11 @@ var chromeShim = {
 
         return pc;
       };
-      window.RTCPeerConnection.prototype = webkitRTCPeerConnection.prototype;
+      win.RTCPeerConnection.prototype = webkitRTCPeerConnection.prototype;
 
       // wrap static methods. Currently just generateCertificate.
       if (webkitRTCPeerConnection.generateCertificate) {
-        Object.defineProperty(window.RTCPeerConnection, 'generateCertificate', {
+        Object.defineProperty(win.RTCPeerConnection, 'generateCertificate', {
           get: function() {
             return webkitRTCPeerConnection.generateCertificate;
           }

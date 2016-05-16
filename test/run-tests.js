@@ -22,7 +22,8 @@ var browserbin = './browsers/bin/' + process.env.BROWSER +
     '-' + process.env.BVER;
 
 // install browsers via travis-multirunner (on Linux).
-if (os.platform() === 'linux') {
+if (os.platform() === 'linux' &&
+    process.env.BROWSER !== 'MicrosoftEdge') {
   try {
     fs.accessSync(browserbin, fs.X_OK);
   } catch (e) {
@@ -50,9 +51,6 @@ if (os.platform() === 'win32') {
 // Checks that the tests can start and that execution finishes.
 require('./test');
 
-// Edge SDP tests. Run in node.
-require('./sdp');
-
 // This is run as a test so it is executed after all tests
 // have completed.
 test('Shutdown', function(t) {
@@ -62,5 +60,12 @@ test('Shutdown', function(t) {
     driver.quit().then(function() {
       t.end();
     });
+  })
+  .catch(function(err) {
+    // Edge doesn't like close->quit
+    console.log(err.name);
+    if (process.env.BROWSER === 'MicrosoftEdge') {
+      t.end();
+    }
   });
 });

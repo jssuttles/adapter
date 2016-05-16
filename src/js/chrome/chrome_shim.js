@@ -1,3 +1,4 @@
+
 /*
  *  Copyright (c) 2016 The WebRTC project authors. All Rights Reserved.
  *
@@ -11,6 +12,13 @@ var logging = require('../utils.js').log;
 var browserDetails = require('../utils.js').browserDetails;
 
 var chromeShim = {
+  shimMediaStream: function(win) {
+    if (!win && window) {
+      win = window;
+    }
+    win.MediaStream = win.MediaStream || win.webkitMediaStream;
+  },
+
   shimOnTrack: function(win) {
     if (!win && window) {
       win = window;
@@ -100,89 +108,101 @@ var chromeShim = {
     if (!win && window) {
       win = window;
     }
-    if (typeof win === 'object') {
-      // The RTCPeerConnection object.
-      win.RTCPeerConnection = function(pcConfig, pcConstraints) {
-        // Translate iceTransportPolicy to iceTransports,
-        // see https://code.google.com/p/webrtc/issues/detail?id=4869
-        logging('PeerConnection');
-        if (pcConfig && pcConfig.iceTransportPolicy) {
-          pcConfig.iceTransports = pcConfig.iceTransportPolicy;
-        }
-
-        var pc = new webkitRTCPeerConnection(pcConfig, pcConstraints);
-        var origGetStats = pc.getStats.bind(pc);
-        pc.getStats = function(selector, successCallback, errorCallback) {
-          var self = this;
-          var args = arguments;
-
-          // If selector is a function
-          // then we are in the old style stats so just
-          // pass back the original getStats format to avoid breaking old users.
-          if (arguments.length > 0 && typeof selector === 'function') {
-            return origGetStats(selector, successCallback);
-          }
-
-          var fixChromeStats_ = function(response) {
-            var standardReport = {};
-            var reports = response.result();
-            reports.forEach(function(report) {
-              var standardStats = {
-                id: report.id,
-                timestamp: report.timestamp,
-                type: report.type
-              };
-              report.names().forEach(function(name) {
-                standardStats[name] = report.stat(name);
-              });
-              standardReport[standardStats.id] = standardStats;
-            });
-
-            return standardReport;
-          };
-
-          if (arguments.length >= 2) {
-            var successCallbackWrapper_ = function(response) {
-              args[1](fixChromeStats_(response));
-            };
-
-            return origGetStats.apply(this, [successCallbackWrapper_,
-                arguments[0]]);
-          }
-
-          // promise-support
-          return new Promise(function(resolve, reject) {
-            if (args.length === 1 && typeof selector === 'object') {
-              origGetStats.apply(self,
-                  [function(response) {
-                    resolve.apply(null, [fixChromeStats_(response)]);
-                  }, reject]);
-            } else {
-              origGetStats.apply(self, [resolve, reject]);
-            }
-          });
-        };
-
-        return pc;
-      };
-      win.RTCPeerConnection.prototype = webkitRTCPeerConnection.prototype;
-
-      // wrap static methods. Currently just generateCertificate.
-      if (webkitRTCPeerConnection.generateCertificate) {
-        Object.defineProperty(win.RTCPeerConnection, 'generateCertificate', {
-          get: function() {
-            return webkitRTCPeerConnection.generateCertificate;
-          }
-        });
+    // The RTCPeerConnection object.
+    win.RTCPeerConnection = function(pcConfig, pcConstraints) {
+      // Translate iceTransportPolicy to iceTransports,
+      // see https://code.google.com/p/webrtc/issues/detail?id=4869
+      logging('PeerConnection');
+      if (pcConfig && pcConfig.iceTransportPolicy) {
+        pcConfig.iceTransports = pcConfig.iceTransportPolicy;
       }
 
-      // add promise support
+      var pc = new webkitRTCPeerConnection(pcConfig, pcConstraints);
+      var origGetStats = pc.getStats.bind(pc);
+      pc.getStats = function(selector, successCallback, errorCallback) {
+        var self = this;
+        var args = arguments;
+
+        // If selector is a function then we are in the old style stats so just
+        // pass back the original getStats format to avoid breaking old users.
+        if (arguments.length > 0 && typeof selector === 'function') {
+          return origGetStats(selector, successCallback);
+        }
+
+        var fixChromeStats_ = function(response) {
+          var standardReport = {};
+          var reports = response.result();
+          reports.forEach(function(report) {
+            var standardStats = {
+              id: report.id,
+              timestamp: report.timestamp,
+              type: report.type
+            };
+            report.names().forEach(function(name) {
+              standardStats[name] = report.stat(name);
+            });
+            standardReport[standardStats.id] = standardStats;
+          });
+
+          return standardReport;
+        };
+
+        // shim getStats with maplike support
+        var makeMapStats = (stats, legacyStats) => {
+          var map = new Map(Object.keys(stats).map(key => [key, stats[key]]));
+          legacyStats = legacyStats || stats;
+          Object.keys(legacyStats).forEach(key => {
+            map[key] = legacyStats[key];
+          });
+          return map;
+        };
+
+        if (arguments.length >= 2) {
+          var successCallbackWrapper_ = function(response) {
+            args[1](makeMapStats(fixChromeStats_(response)));
+          };
+
+          return origGetStats.apply(this, [successCallbackWrapper_,
+              arguments[0]]);
+        }
+
+        // promise-support
+        return new Promise(function(resolve, reject) {
+          if (args.length === 1 && typeof selector === 'object') {
+            origGetStats.apply(self,
+                [response => resolve(makeMapStats(fixChromeStats_(response))),
+                 reject]);
+          } else {
+            // Preserve legacy chrome stats only on legacy access of stats obj
+            origGetStats.apply(self,
+                [response => resolve(makeMapStats(fixChromeStats_(response),
+                                                  response.result())),
+                 reject]);
+          }
+        }).then(successCallback, errorCallback);
+      };
+
+      return pc;
+    };
+    win.RTCPeerConnection.prototype = webkitRTCPeerConnection.prototype;
+
+    // wrap static methods. Currently just generateCertificate.
+    if (webkitRTCPeerConnection.generateCertificate) {
+      Object.defineProperty(win.RTCPeerConnection, 'generateCertificate', {
+        get: function() {
+          return webkitRTCPeerConnection.generateCertificate;
+        }
+      });
+    }
+
+    // add promise support -- natively available in Chrome 51
+    if (browserDetails.version < 51) {
       ['createOffer', 'createAnswer'].forEach(function(method) {
         var nativeMethod = webkitRTCPeerConnection.prototype[method];
         webkitRTCPeerConnection.prototype[method] = function() {
           var self = this;
           if (arguments.length < 1 || (arguments.length === 1 &&
-              typeof(arguments[0]) === 'object')) {
+              typeof arguments[0] === 'object')) {
             var opts = arguments.length === 1 ? arguments[0] : undefined;
             return new Promise(function(resolve, reject) {
               nativeMethod.apply(self, [resolve, reject, opts]);
@@ -198,27 +218,34 @@ var chromeShim = {
             webkitRTCPeerConnection.prototype[method] = function() {
               var args = arguments;
               var self = this;
-              args[0] = new ((method === 'addIceCandidate')?
-                  RTCIceCandidate : RTCSessionDescription)(args[0]);
-              return new Promise(function(resolve, reject) {
-                nativeMethod.apply(self, [args[0],
-                    function() {
-                      resolve();
-                      if (args.length >= 2) {
-                        args[1].apply(null, []);
-                      }
-                    },
-                    function(err) {
-                      reject(err);
-                      if (args.length >= 3) {
-                        args[2].apply(null, [err]);
-                      }
-                    }]
-                  );
+              var promise = new Promise(function(resolve, reject) {
+                nativeMethod.apply(self, [args[0], resolve, reject]);
+              });
+              if (args.length < 2) {
+                return promise;
+              }
+              return promise.then(function() {
+                args[1].apply(null, []);
+              },
+              function(err) {
+                if (args.length >= 3) {
+                  args[2].apply(null, [err]);
+                }
               });
             };
           });
     }
+
+    // shim implicit creation of RTCSessionDescription/RTCIceCandidate
+    ['setLocalDescription', 'setRemoteDescription', 'addIceCandidate']
+        .forEach(function(method) {
+          var nativeMethod = webkitRTCPeerConnection.prototype[method];
+          webkitRTCPeerConnection.prototype[method] = function() {
+            arguments[0] = new ((method === 'addIceCandidate') ?
+                RTCIceCandidate : RTCSessionDescription)(arguments[0]);
+            return nativeMethod.apply(this, arguments);
+          };
+        });
   },
 
   // Attach a media stream to an element.
@@ -246,6 +273,7 @@ var chromeShim = {
 
 // Expose public methods.
 module.exports = {
+  shimMediaStream: chromeShim.shimMediaStream,
   shimOnTrack: chromeShim.shimOnTrack,
   shimSourceObject: chromeShim.shimSourceObject,
   shimPeerConnection: chromeShim.shimPeerConnection,

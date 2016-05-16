@@ -65,28 +65,72 @@ module.exports = function(nav) {
     return cc;
   };
 
-  var getUserMedia_ = function(constraints, onSuccess, onError) {
+  var shimConstraints_ = function(constraints, func) {
     constraints = JSON.parse(JSON.stringify(constraints));
-    if (constraints.audio) {
+    if (constraints && constraints.audio) {
       constraints.audio = constraintsToChrome_(constraints.audio);
     }
-    if (constraints.video) {
+    if (constraints && typeof constraints.video === 'object') {
+      // Shim facingMode for mobile, where it defaults to "user".
+      var face = constraints.video.facingMode;
+      face = face && ((typeof face === 'object') ? face : {ideal: face});
+
+      if ((face && (face.exact === 'user' || face.exact === 'environment' ||
+                    face.ideal === 'user' || face.ideal === 'environment')) &&
+          !(nav.mediaDevices.getSupportedConstraints &&
+            nav.mediaDevices.getSupportedConstraints().facingMode)) {
+        delete constraints.video.facingMode;
+        if (face.exact === 'environment' || face.ideal === 'environment') {
+          // Look for "back" in label, or use last cam (typically back cam).
+          return nav.mediaDevices.enumerateDevices()
+          .then(devices => {
+            devices = devices.filter(d => d.kind === 'videoinput');
+            var back = devices.find(d =>
+                d.label.toLowerCase().indexOf('back') !== -1) ||
+                (devices.length && devices[devices.length - 1]);
+            if (back) {
+              constraints.video.deviceId = face.exact ? {exact: back.deviceId} :
+                                                        {ideal: back.deviceId};
+            }
+            constraints.video = constraintsToChrome_(constraints.video);
+            logging('chrome: ' + JSON.stringify(constraints));
+            return func(constraints);
+          });
+        }
+      }
       constraints.video = constraintsToChrome_(constraints.video);
     }
     logging('chrome: ' + JSON.stringify(constraints));
-    return navigator.webkitGetUserMedia(constraints, onSuccess, onError);
+    return func(constraints);
   };
-  navigator.getUserMedia = getUserMedia_;
+
+  var shimError_ = e => ({
+    name: {PermissionDeniedError: 'NotAllowedError',
+           ConstraintNotSatisfiedError: 'OverconstrainedError'
+          }[e.name] || e.name,
+    message: e.message,
+    constraint: e.constraintName,
+    toString: function() {
+      return this.name + (this.message && ': ') + this.message;
+    }
+  });
+
+  var getUserMedia_ = (constraints, onSuccess, onError) =>
+    shimConstraints_(constraints,
+                     c => nav.webkitGetUserMedia(c, onSuccess,
+                         e => onError(shimError_(e))));
+
+  nav.getUserMedia = getUserMedia_;
 
   // Returns the result of getUserMedia as a Promise.
   var getUserMediaPromise_ = function(constraints) {
     return new Promise(function(resolve, reject) {
-      navigator.getUserMedia(constraints, resolve, reject);
+      nav.getUserMedia(constraints, resolve, reject);
     });
   };
 
-  if (!navigator.mediaDevices) {
-    navigator.mediaDevices = {
+  if (!nav.mediaDevices) {
+    nav.mediaDevices = {
       getUserMedia: getUserMediaPromise_,
       enumerateDevices: function() {
         return new Promise(function(resolve) {
@@ -106,36 +150,29 @@ module.exports = function(nav) {
 
   // A shim for getUserMedia method on the mediaDevices object.
   // TODO(KaptenJansson) remove once implemented in Chrome stable.
-  if (!navigator.mediaDevices.getUserMedia) {
-    navigator.mediaDevices.getUserMedia = function(constraints) {
+  if (!nav.mediaDevices.getUserMedia) {
+    nav.mediaDevices.getUserMedia = function(constraints) {
       return getUserMediaPromise_(constraints);
     };
   } else {
     // Even though Chrome 45 has navigator.mediaDevices and a getUserMedia
     // function which returns a Promise, it does not accept spec-style
     // constraints.
-    var origGetUserMedia = navigator.mediaDevices.getUserMedia.
-        bind(navigator.mediaDevices);
-    navigator.mediaDevices.getUserMedia = function(c) {
-      if (c) {
-        logging('spec:   ' + JSON.stringify(c)); // whitespace for alignment
-        c.audio = constraintsToChrome_(c.audio);
-        c.video = constraintsToChrome_(c.video);
-        logging('chrome: ' + JSON.stringify(c));
-      }
-      return origGetUserMedia(c);
-    }.bind(this);
+    var origGetUserMedia = nav.mediaDevices.getUserMedia.
+        bind(nav.mediaDevices);
+    nav.mediaDevices.getUserMedia = cs => shimConstraints_(cs,
+        c => origGetUserMedia(c).catch(e => Promise.reject(shimError_(e))));
   }
 
   // Dummy devicechange event methods.
   // TODO(KaptenJansson) remove once implemented in Chrome stable.
-  if (typeof navigator.mediaDevices.addEventListener === 'undefined') {
-    navigator.mediaDevices.addEventListener = function() {
+  if (typeof nav.mediaDevices.addEventListener === 'undefined') {
+    nav.mediaDevices.addEventListener = function() {
       logging('Dummy mediaDevices.addEventListener called.');
     };
   }
-  if (typeof navigator.mediaDevices.removeEventListener === 'undefined') {
-    navigator.mediaDevices.removeEventListener = function() {
+  if (typeof nav.mediaDevices.removeEventListener === 'undefined') {
+    nav.mediaDevices.removeEventListener = function() {
       logging('Dummy mediaDevices.removeEventListener called.');
     };
   }

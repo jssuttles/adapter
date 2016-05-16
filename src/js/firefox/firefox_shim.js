@@ -58,6 +58,10 @@ var firefoxShim = {
   },
 
   shimPeerConnection: function() {
+    if (typeof window !== 'object' || !(window.RTCPeerConnection ||
+        window.mozRTCPeerConnection)) {
+      return; // probably media.peerconnection.enabled=false in about:config
+    }
     // The RTCPeerConnection object.
     if (!window.RTCPeerConnection) {
       window.RTCPeerConnection = function(pcConfig, pcConstraints) {
@@ -108,11 +112,28 @@ var firefoxShim = {
         .forEach(function(method) {
           var nativeMethod = RTCPeerConnection.prototype[method];
           RTCPeerConnection.prototype[method] = function() {
-            arguments[0] = new ((method === 'addIceCandidate')?
+            arguments[0] = new ((method === 'addIceCandidate') ?
                 RTCIceCandidate : RTCSessionDescription)(arguments[0]);
             return nativeMethod.apply(this, arguments);
           };
         });
+
+    // shim getStats with maplike support
+    var makeMapStats = stats => {
+      var map = new Map();
+      Object.keys(stats).forEach(key => {
+        map.set(key, stats[key]);
+        map[key] = stats[key];
+      });
+      return map;
+    };
+
+    var nativeGetStats = RTCPeerConnection.prototype.getStats;
+    RTCPeerConnection.prototype.getStats = function(selector, onSucc, onErr) {
+      return nativeGetStats.apply(this, [selector || null])
+        .then(stats => makeMapStats(stats))
+        .then(onSucc, onErr);
+    };
   },
 
   shimGetUserMedia: function() {

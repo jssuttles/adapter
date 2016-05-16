@@ -41,6 +41,8 @@
     "space-after-keywords": 2,
     "space-before-blocks": 2,
     "space-before-function-paren": [2, "never"],
+    "space-unary-ops": 2,
+    "space-infix-ops": 2,
     "spaced-comment": 2,
     "valid-typeof": 2
   },
@@ -49,21 +51,10 @@
       "browser": true,
       "node": true
   },
-  "extends": "eslint:recommended",
+  "extends": ["eslint:recommended", "webrtc"],
   "globals": {
-    "MediaStream": true,
     "module": true,
-    "mozRTCPeerConnection": true,
-    "mozRTCSessionDescription": true,
-    "mozRTCIceCandidate": true,
     "require": true,
-    "RTCPeerConnection": true,
-    "RTCRtpSender": true,
-    "RTCRtpReceiver": true,
-    "RTCIceTransport": true,
-    "RTCDtlsTransport": true,
-    "RTCIceGatherer": true,
-    "webkitRTCPeerConnection": true,
     "process": true
   }
 }

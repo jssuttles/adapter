@@ -98,7 +98,7 @@ test('Browser identified', function(t) {
   var driver = seleniumHelpers.buildDriver();
 
   // Run test.
-  driver.get('file://' + process.cwd() + '/test/testpage.html')
+  seleniumHelpers.loadTestPage(driver)
   .then(function() {
     t.plan(4);
     t.pass('Page loaded');
@@ -130,7 +130,7 @@ test('Browser supported by adapter.js', function(t) {
   var driver = seleniumHelpers.buildDriver();
 
   // Run test.
-  driver.get('file://' + process.cwd() + '/test/testpage.html')
+  seleniumHelpers.loadTestPage(driver)
   .then(function() {
     t.plan(2);
     t.pass('Page loaded');
@@ -171,7 +171,7 @@ test('navigator.mediaDevices.getUserMedia', function(t) {
   };
 
   // Run test.
-  driver.get('file://' + process.cwd() + '/test/testpage.html')
+  seleniumHelpers.loadTestPage(driver)
   .then(function() {
     t.pass('Page loaded');
     return driver.executeAsyncScript(testDefinition);
@@ -209,7 +209,7 @@ test('getUserMedia shim', function(t) {
   var driver = seleniumHelpers.buildDriver();
 
   // Run test.
-  driver.get('file://' + process.cwd() + '/test/testpage.html')
+  seleniumHelpers.loadTestPage(driver)
   .then(function() {
     t.plan(3);
     t.pass('Page loaded');
@@ -241,7 +241,7 @@ test('navigator.mediaDevices eventlisteners', function(t) {
   var driver = seleniumHelpers.buildDriver();
 
   // Run test.
-  driver.get('file://' + process.cwd() + '/test/testpage.html')
+  seleniumHelpers.loadTestPage(driver)
   .then(function() {
     t.plan(3);
     t.pass('Page loaded');
@@ -271,11 +271,31 @@ test('navigator.mediaDevices eventlisteners', function(t) {
   });
 });
 
+test('MediaStream shim', function(t) {
+  var driver = seleniumHelpers.buildDriver();
+
+  // Run test.
+  seleniumHelpers.loadTestPage(driver)
+  .then(function() {
+    t.pass('Page loaded');
+    return driver.executeScript(
+      'return window.MediaStream !== \'undefined\'');
+  })
+  .then(function(isMediaStreamDefined) {
+    t.ok(isMediaStreamDefined, 'MediaStream is defined');
+    t.end();
+  })
+  .then(null, function(err) {
+    t.fail(err);
+    t.end();
+  });
+});
+
 test('RTCPeerConnection shim', function(t) {
   var driver = seleniumHelpers.buildDriver();
 
   // Run test.
-  driver.get('file://' + process.cwd() + '/test/testpage.html')
+  seleniumHelpers.loadTestPage(driver)
   .then(function() {
     t.plan(4);
     t.pass('Page loaded');
@@ -306,7 +326,7 @@ test('Create RTCPeerConnection', function(t) {
   var driver = seleniumHelpers.buildDriver();
 
   // Run test.
-  driver.get('file://' + process.cwd() + '/test/testpage.html')
+  seleniumHelpers.loadTestPage(driver)
   .then(function() {
     t.plan(2);
     t.pass('Page loaded');
@@ -356,7 +376,7 @@ test('attachMediaStream', function(t) {
   };
 
   // Run test.
-  driver.get('file://' + process.cwd() + '/test/testpage.html')
+  seleniumHelpers.loadTestPage(driver)
   .then(function() {
     t.plan(6);
     t.pass('Page loaded');
@@ -444,7 +464,7 @@ test('reattachMediaStream', function(t) {
   };
 
   // Run test.
-  driver.get('file://' + process.cwd() + '/test/testpage.html')
+  seleniumHelpers.loadTestPage(driver)
   .then(function() {
     t.plan(9);
     t.pass('Page loaded');
@@ -537,7 +557,7 @@ test('Video srcObject getter/setter test', function(t) {
   };
 
   // Run test.
-  driver.get('file://' + process.cwd() + '/test/testpage.html')
+  seleniumHelpers.loadTestPage(driver)
   .then(function() {
     t.plan(3);
     t.pass('Page loaded');
@@ -603,7 +623,7 @@ test('Audio srcObject getter/setter test', function(t) {
   };
 
   // Run test.
-  driver.get('file://' + process.cwd() + '/test/testpage.html')
+  seleniumHelpers.loadTestPage(driver)
   .then(function() {
     t.plan(3);
     t.pass('Page loaded');
@@ -674,7 +694,7 @@ test('srcObject set from another object', function(t) {
   };
 
   // Run test.
-  driver.get('file://' + process.cwd() + '/test/testpage.html')
+  seleniumHelpers.loadTestPage(driver)
   .then(function() {
     t.plan(3);
     t.pass('Page loaded');
@@ -738,7 +758,7 @@ test('srcObject null setter', function(t) {
   };
 
   // Run test.
-  driver.get('file://' + process.cwd() + '/test/testpage.html')
+  seleniumHelpers.loadTestPage(driver)
   .then(function() {
     t.plan(3);
     t.pass('Page loaded');
@@ -804,7 +824,7 @@ test('Attach mediaStream directly', function(t) {
   };
 
   // Run test.
-  driver.get('file://' + process.cwd() + '/test/testpage.html')
+  seleniumHelpers.loadTestPage(driver)
   .then(function() {
     t.plan(6);
     t.pass('Page loaded');
@@ -892,7 +912,7 @@ test('Re-attaching mediaStream directly', function(t) {
   };
 
   // Run test.
-  driver.get('file://' + process.cwd() + '/test/testpage.html')
+  seleniumHelpers.loadTestPage(driver)
   .then(function() {
     t.plan(9);
     t.pass('Page loaded');
@@ -993,7 +1013,7 @@ test('Call getUserMedia with impossible constraints',
       };
 
       // Run test.
-      driver.get('file://' + process.cwd() + '/test/testpage.html')
+      seleniumHelpers.loadTestPage(driver)
       .then(function() {
         t.plan(2);
         t.pass('Page loaded');
@@ -1241,7 +1261,7 @@ test('Check getUserMedia legacy constraints converter', function(t) {
   };
 
   // Run test.
-  driver.get('file://' + process.cwd() + '/test/testpage.html')
+  seleniumHelpers.loadTestPage(driver)
   .then(function() {
     // t.plan(2);
     t.pass('Page loaded');
@@ -1316,7 +1336,7 @@ test('Basic connection establishment', function(t) {
         var cand = new RTCIceCandidate(event.candidate);
         pc.addIceCandidate(cand,
           function() {
-            // TODO: Decide if we are intereted in adding all candidates
+            // TODO: Decide if we are interested in adding all candidates
             // as passed tests.
             tc.pass('addIceCandidate ' + counter++);
           },
@@ -1395,7 +1415,7 @@ test('Basic connection establishment', function(t) {
   };
 
   // Run test.
-  driver.get('file://' + process.cwd() + '/test/testpage.html')
+  seleniumHelpers.loadTestPage(driver)
   .then(function() {
     t.pass('Page loaded');
     return driver.executeAsyncScript(testDefinition);
@@ -1512,7 +1532,7 @@ test('Basic connection establishment with promise', function(t) {
   };
 
   // Run test.
-  driver.get('file://' + process.cwd() + '/test/testpage.html')
+  seleniumHelpers.loadTestPage(driver)
   .then(function() {
     t.pass('Page loaded');
     return driver.executeAsyncScript(testDefinition);
@@ -1634,7 +1654,7 @@ test('Basic connection establishment with datachannel', function(t) {
   };
 
   // Run test.
-  driver.get('file://' + process.cwd() + '/test/testpage.html')
+  seleniumHelpers.loadTestPage(driver)
   .then(function() {
     t.pass('Page loaded');
     return driver.executeAsyncScript(testDefinition);
@@ -1690,7 +1710,7 @@ test('call enumerateDevices', function(t) {
   };
 
   // Run test.
-  driver.get('file://' + process.cwd() + '/test/testpage.html')
+  seleniumHelpers.loadTestPage(driver)
   .then(function() {
     t.pass('Page loaded');
     return driver.executeAsyncScript(testDefinition);
@@ -1724,7 +1744,7 @@ test('call enumerateDevices', function(t) {
   });
 });
 
-// Test Chrome polyfill for getStats.
+// Test polyfill for getStats.
 test('getStats', function(t) {
   var driver = seleniumHelpers.buildDriver();
 
@@ -1739,15 +1759,23 @@ test('getStats', function(t) {
       pc1.getStats(null, resolve, reject);
     })
     .then(function(report) {
-      window.testsEqualArray.push([typeof(report), 'object',
+      window.testsEqualArray.push([typeof report, 'object',
           'report is an object.']);
+      report.forEach((stat, key) => {
+        window.testsEqualArray.push([stat.id, key,
+            'report key matches stats id.']);
+      });
+      return report;
+    })
+    .then(function(report) {
+      // Test legacy behavior
       for (var key in report) {
         // This avoids problems with Firefox
-        if (typeof(report[key]) === 'function') {
+        if (typeof report[key] === 'function') {
           continue;
         }
         window.testsEqualArray.push([report[key].id, key,
-            'report key matches stats id.']);
+            'legacy report key matches stats id.']);
       }
       callback(null);
     })
@@ -1757,7 +1785,7 @@ test('getStats', function(t) {
   };
 
   // Run test.
-  driver.get('file://' + process.cwd() + '/test/testpage.html')
+  seleniumHelpers.loadTestPage(driver)
   .then(function() {
     t.pass('Page loaded');
     return driver.executeAsyncScript(testDefinition);
@@ -1834,7 +1862,7 @@ test('originalChromeGetStats', function(t) {
   };
 
   // Run test.
-  driver.get('file://' + process.cwd() + '/test/testpage.html')
+  seleniumHelpers.loadTestPage(driver)
   .then(function() {
     t.pass('Page loaded');
     return driver.executeScript('return adapter.browserDetails.browser')
@@ -1925,7 +1953,7 @@ test('getStats promise', function(t) {
   };
 
   // Run test.
-  driver.get('file://' + process.cwd() + '/test/testpage.html')
+  seleniumHelpers.loadTestPage(driver)
   .then(function() {
     t.pass('Page loaded');
     return driver.executeAsyncScript(testDefinition);
@@ -2010,7 +2038,7 @@ test('iceTransportPolicy relay functionality', function(t) {
   };
 
   // Run test.
-  driver.get('file://' + process.cwd() + '/test/testpage.html')
+  seleniumHelpers.loadTestPage(driver)
   .then(function() {
     t.pass('Page loaded');
     return driver.executeAsyncScript(testDefinition);
@@ -2047,7 +2075,7 @@ test('static generateCertificate method', function(t) {
   var driver = seleniumHelpers.buildDriver();
 
   // Run test.
-  driver.get('file://' + process.cwd() + '/test/testpage.html')
+  seleniumHelpers.loadTestPage(driver)
   .then(function() {
     t.plan(2);
     t.pass('Page loaded');
@@ -2084,7 +2112,7 @@ test('static generateCertificate method', function(t) {
 });
 
 // ontrack is shimmed in Chrome so we test that it is called.
-test('ontrack', function(t) {
+test('ontrack', {skip: process.env.BROWSER === 'firefox'}, function(t) {
   var driver = seleniumHelpers.buildDriver();
 
   var testDefinition = function() {
@@ -2174,7 +2202,7 @@ test('ontrack', function(t) {
   // plan for 7 tests.
   t.plan(7);
   // Run test.
-  driver.get('file://' + process.cwd() + '/test/testpage.html')
+  seleniumHelpers.loadTestPage(driver)
   .then(function() {
     return driver.executeAsyncScript(testDefinition);
   })
@@ -2189,7 +2217,6 @@ test('ontrack', function(t) {
   .then(function(pc1ConnectionStatus) {
     t.ok(pc1ConnectionStatus === 'completed' || 'connected',
       'P2P connection established');
-    driver.sleep(1000); // flaky in firefox
     return driver.executeScript('return window.testPassed');
   })
   .then(function(testPassed) {
@@ -2248,7 +2275,7 @@ test('Non-module logging to console still works', function(t) {
   };
 
   // Run test.
-  driver.get('file://' + process.cwd() + '/test/testpage.html')
+  seleniumHelpers.loadTestPage(driver)
   .then(function() {
     t.pass('Page loaded');
     return driver.executeScript(testDefinition);

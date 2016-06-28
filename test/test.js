@@ -346,188 +346,6 @@ test('Create RTCPeerConnection', function(t) {
   });
 });
 
-test('attachMediaStream', function(t) {
-  var driver = seleniumHelpers.buildDriver();
-
-  // Define test.
-  var testDefinition = function() {
-    var callback = arguments[arguments.length - 1];
-
-    var constraints = {video: true, fake: true};
-    navigator.mediaDevices.getUserMedia(constraints)
-    .then(function(stream) {
-      window.stream = stream;
-
-      var video = document.createElement('video');
-      video.setAttribute('id', 'video');
-      video.setAttribute('autoplay', 'true');
-      // If attachMediaStream works, we should get a video
-      // at some point. This will trigger loadedmetadata.
-      video.addEventListener('loadedmetadata', function() {
-        document.body.appendChild(video);
-        callback(null);
-      });
-
-      window.adapter.browserShim.attachMediaStream(video, stream);
-    })
-    .catch(function(err) {
-      callback(err.name);
-    });
-  };
-
-  // Run test.
-  seleniumHelpers.loadTestPage(driver)
-  .then(function() {
-    t.plan(6);
-    t.pass('Page loaded');
-    return driver.executeAsyncScript(testDefinition);
-  })
-  .then(function(error) {
-    var gumResult = (error) ? 'error: ' + error : 'no errors';
-    t.ok(!error, 'getUserMedia result:  ' + gumResult);
-    // We need to wait due to the stream can take a while to setup.
-    driver.wait(function() {
-      return driver.executeScript(
-        'return typeof window.stream !== \'undefined\'');
-    }, 3000);
-    return driver.executeScript(
-      // Firefox and Chrome have different constructor names.
-      'return window.stream.constructor.name.match(\'MediaStream\') !== null');
-  })
-  .then(function(isMediaStream) {
-    t.ok(isMediaStream, 'Stream is a MediaStream');
-    // Wait until loadededmetadata event has fired and appended video element.
-    // 5 second timeout in case the event does not fire for some reason.
-    return driver.wait(webdriver.until.elementLocated(
-      webdriver.By.id('video')), 3000);
-  })
-  .then(function(videoElement) {
-    t.pass('attachMediaStream successfully attached stream to video element');
-    videoElement.getAttribute('videoWidth')
-    .then(function(width) {
-      videoElement.getAttribute('videoHeight')
-      .then(function(height) {
-        // Chrome sets the stream dimensions to 2x2 if something is wrong
-        // with the stream/frames from the camera.
-        t.ok(width > 2, 'Video width is: ' + width);
-        t.ok(height > 2, 'Video height is: ' + height);
-      });
-    });
-  })
-  .then(function() {
-    t.end();
-  })
-  .then(null, function(err) {
-    if (err !== 'skip-test') {
-      t.fail(err);
-    }
-    t.end();
-  });
-});
-
-test('reattachMediaStream', function(t) {
-  var driver = seleniumHelpers.buildDriver();
-
-  // Define test.
-  var testDefinition = function() {
-    var callback = arguments[arguments.length - 1];
-
-    var constraints = {video: true, fake: true};
-    navigator.mediaDevices.getUserMedia(constraints)
-    .then(function(stream) {
-      window.stream = stream;
-
-      var video = document.createElement('video');
-      var video2 = document.createElement('video');
-      video.setAttribute('id', 'video');
-      video.setAttribute('autoplay', 'true');
-      video2.setAttribute('id', 'video2');
-      video2.setAttribute('autoplay', 'true');
-      // If attachMediaStream works, we should get a video
-      // at some point. This will trigger loadedmetadata.
-      // This reattaches to the second video which will trigger
-      // loadedmetadata there.
-      video.addEventListener('loadedmetadata', function() {
-        document.body.appendChild(video);
-        window.adapter.browserShim.reattachMediaStream(video2, video);
-      });
-      video2.addEventListener('loadedmetadata', function() {
-        document.body.appendChild(video2);
-        callback(null);
-      });
-
-      window.adapter.browserShim.attachMediaStream(video, stream);
-    })
-    .catch(function(err) {
-      callback(err.name);
-    });
-  };
-
-  // Run test.
-  seleniumHelpers.loadTestPage(driver)
-  .then(function() {
-    t.plan(9);
-    t.pass('Page loaded');
-    return driver.executeAsyncScript(testDefinition);
-  })
-  .then(function(error) {
-    var gumResult = (error) ? 'error: ' + error : 'no errors';
-    t.ok(!error, 'getUserMedia result:  ' + gumResult);
-    driver.wait(function() {
-      // We need to wait due to the stream can take a while to setup.
-      return driver.executeScript(
-        'return typeof window.stream !== \'undefined\'');
-    }, 3000);
-    return driver.executeScript(
-      // Firefox and Chrome have different constructor names.
-      'return window.stream.constructor.name.match(\'MediaStream\') !== null');
-  })
-  .then(function(isMediaStream) {
-    t.ok(isMediaStream, 'Stream is a MediaStream');
-    // Wait until loadedmetadata event has fired and appended video element.
-    return driver.wait(webdriver.until.elementLocated(
-      webdriver.By.id('video')), 3000);
-  })
-  .then(function(videoElement) {
-    t.pass('attachMediaStream successfully attached stream to video element');
-    videoElement.getAttribute('videoWidth')
-    .then(function(width) {
-      videoElement.getAttribute('videoHeight')
-      .then(function(height) {
-        // Chrome sets the stream dimensions to 2x2 if something is wrong
-        // with the stream/frames from the camera.
-        t.ok(width > 2, 'Video width is: ' + width);
-        t.ok(height > 2, 'Video height is: ' + height);
-      });
-    });
-    // Wait until loadedmetadata event has fired and appended video element.
-    return driver.wait(webdriver.until.elementLocated(
-      webdriver.By.id('video2')), 3000);
-  })
-  .then(function(videoElement2) {
-    t.pass('attachMediaStream succesfully re-attached stream to video element');
-    videoElement2.getAttribute('videoWidth')
-    .then(function(width) {
-      videoElement2.getAttribute('videoHeight')
-      .then(function(height) {
-        // Chrome sets the stream dimensions to 2x2 if something is wrong
-        // with the stream/frames from the camera.
-        t.ok(width > 2, 'Video 2 width is: ' + width);
-        t.ok(height > 2, 'Video 2 height is: ' + height);
-      });
-    });
-  })
-  .then(function() {
-    t.end();
-  })
-  .then(null, function(err) {
-    if (err !== 'skip-test') {
-      t.fail(err);
-    }
-    t.end();
-  });
-});
-
 test('Video srcObject getter/setter test', function(t) {
   var driver = seleniumHelpers.buildDriver();
 
@@ -544,7 +362,7 @@ test('Video srcObject getter/setter test', function(t) {
       video.setAttribute('id', 'video');
       video.setAttribute('autoplay', 'true');
       video.srcObject = stream;
-      // If attachMediaStream works, we should get a video
+      // If the srcObject shim works, we should get a video
       // at some point. This will trigger loadedmetadata.
       video.addEventListener('loadedmetadata', function() {
         document.body.appendChild(video);
@@ -610,7 +428,7 @@ test('Audio srcObject getter/setter test', function(t) {
       var audio = document.createElement('audio');
       audio.setAttribute('id', 'audio');
       audio.srcObject = stream;
-      // If attachMediaStream works, we should get a video
+      // If the srcObject shim works, we should get a video
       // at some point. This will trigger loadedmetadata.
       audio.addEventListener('loadedmetadata', function() {
         document.body.appendChild(audio);
@@ -680,7 +498,7 @@ test('srcObject set from another object', function(t) {
       video.srcObject = stream;
       video2.srcObject = video.srcObject;
 
-      // If attachMediaStream works, we should get a video
+      // If the srcObject shim works, we should get a video
       // at some point. This will trigger loadedmetadata.
       video.addEventListener('loadedmetadata', function() {
         document.body.appendChild(video);
@@ -807,7 +625,7 @@ test('Attach mediaStream directly', function(t) {
       var video = document.createElement('video');
       video.setAttribute('id', 'video');
       video.setAttribute('autoplay', 'true');
-      // If attachMediaStream works, we should get a video
+      // If the srcObject shim works, we should get a video
       // at some point. This will trigger loadedmetadata.
       // Firefox < 38 had issues with this, workaround removed
       // due to 38 being stable now.
@@ -1332,19 +1150,16 @@ test('Basic connection establishment', function(t) {
     };
 
     var addCandidate = function(pc, event) {
-      if (event.candidate) {
-        var cand = new RTCIceCandidate(event.candidate);
-        pc.addIceCandidate(cand,
-          function() {
-            // TODO: Decide if we are interested in adding all candidates
-            // as passed tests.
-            tc.pass('addIceCandidate ' + counter++);
-          },
-          function(err) {
-            tc.fail('addIceCandidate ' + err.toString());
-          }
-        );
-      }
+      pc.addIceCandidate(event.candidate,
+        function() {
+          // TODO: Decide if we are interested in adding all candidates
+          // as passed tests.
+          tc.pass('addIceCandidate ' + counter++);
+        },
+        function(err) {
+          tc.fail('addIceCandidate ' + err.toString());
+        }
+      );
     };
     pc1.onicecandidate = function(event) {
       addCandidate(pc2, event);
@@ -1483,16 +1298,14 @@ test('Basic connection establishment with promise', function(t) {
     var dictionary = obj => JSON.parse(JSON.stringify(obj));
 
     var addCandidate = function(pc, event) {
-      if (event.candidate) {
-        pc.addIceCandidate(dictionary(event.candidate)).then(function() {
-          // TODO: Decide if we are interested in adding all candidates
-          // as passed tests.
-          tc.pass('addIceCandidate ' + counter++);
-        })
-        .catch(function(err) {
-          tc.fail('addIceCandidate ' + err.toString());
-        });
-      }
+      pc.addIceCandidate(dictionary(event.candidate)).then(function() {
+        // TODO: Decide if we are interested in adding all candidates
+        // as passed tests.
+        tc.pass('addIceCandidate ' + counter++);
+      })
+      .catch(function(err) {
+        tc.fail('addIceCandidate ' + err.toString());
+      });
     };
     pc1.onicecandidate = function(event) {
       addCandidate(pc2, event);
@@ -1611,17 +1424,14 @@ test('Basic connection establishment with datachannel', function(t) {
     };
 
     var addCandidate = function(pc, event) {
-      if (event.candidate) {
-        var cand = new RTCIceCandidate(event.candidate);
-        pc.addIceCandidate(cand).then(function() {
-          // TODO: Decide if we are interested in adding all candidates
-          // as passed tests.
-          tc.pass('addIceCandidate ' + counter++);
-        })
-        .catch(function(err) {
-          tc.fail('addIceCandidate ' + err.toString());
-        });
-      }
+      pc.addIceCandidate(event.candidate).then(function() {
+        // TODO: Decide if we are interested in adding all candidates
+        // as passed tests.
+        tc.pass('addIceCandidate ' + counter++);
+      })
+      .catch(function(err) {
+        tc.fail('addIceCandidate ' + err.toString());
+      });
     };
     pc1.onicecandidate = function(event) {
       addCandidate(pc2, event);
@@ -1684,6 +1494,35 @@ test('Basic connection establishment with datachannel', function(t) {
     });
   })
   .then(function() {
+    t.end();
+  })
+  .then(null, function(err) {
+    if (err !== 'skip-test') {
+      t.fail(err);
+    }
+    t.end();
+  });
+});
+
+test('addIceCandidate with null', function(t) {
+  var driver = seleniumHelpers.buildDriver();
+
+  var testDefinition = function() {
+    var callback = arguments[arguments.length - 1];
+
+    var pc1 = new RTCPeerConnection(null);
+    pc1.addIceCandidate(null)
+    .then(callback)
+    .catch(callback);
+  };
+  // Run test.
+  seleniumHelpers.loadTestPage(driver)
+  .then(function() {
+    t.pass('Page loaded');
+    return driver.executeAsyncScript(testDefinition);
+  })
+  .then(function(err) {
+    t.ok(err === null, 'addIceCandidate(null) resolves');
     t.end();
   })
   .then(null, function(err) {
@@ -1999,77 +1838,80 @@ test('getStats promise', function(t) {
 // iceTransportPolicy is renamed to iceTransports in Chrome by
 // adapter, this tests that when not setting any TURN server,
 // no candidates are generated.
-test('iceTransportPolicy relay functionality', function(t) {
-  var driver = seleniumHelpers.buildDriver();
+test('iceTransportPolicy relay functionality',
+    {skip: process.env.BROWSER !== 'chrome'},
+    function(t) {
+      var driver = seleniumHelpers.buildDriver();
 
-  // Define test.
-  var testDefinition = function() {
-    var callback = arguments[arguments.length - 1];
+      // Define test.
+      var testDefinition = function() {
+        var callback = arguments[arguments.length - 1];
 
-    window.candidates = [];
+        window.candidates = [];
 
-    var pc1 = new RTCPeerConnection({iceTransportPolicy: 'relay',
-        iceServers: []});
+        var pc1 = new RTCPeerConnection({iceTransportPolicy: 'relay',
+            iceServers: []});
 
-    // Since we try to gather only relay candidates without specifying
-    // a TURN server, we should not get any candidates.
-    pc1.onicecandidate = function(event) {
-      window.candidates.push([event.candidate]);
-      callback(new Error('Candidate found'));
-    };
+        // Since we try to gather only relay candidates without specifying
+        // a TURN server, we should not get any candidates.
+        pc1.onicecandidate = function(event) {
+          if (event.candidate) {
+            window.candidates.push([event.candidate]);
+            callback(new Error('Candidate found'), event.candidate);
+          } else {
+            callback(null);
+          }
+        };
 
-    var constraints = {video: true, fake: true};
-    navigator.mediaDevices.getUserMedia(constraints)
-    .then(function(stream) {
-      pc1.addStream(stream);
-      pc1.createOffer().then(function(offer) {
-        return pc1.setLocalDescription(offer).then(function() {
-          // We are done.
-          return callback(null);
+        var constraints = {video: true, fake: true};
+        navigator.mediaDevices.getUserMedia(constraints)
+        .then(function(stream) {
+          pc1.addStream(stream);
+          pc1.createOffer().then(function(offer) {
+            return pc1.setLocalDescription(offer);
+          })
+          .catch(function(error) {
+            callback(error);
+          });
+        })
+        .catch(function(error) {
+          callback(error);
         });
-      })
-      .catch(function(error) {
-        callback(error);
-      });
-    })
-    .catch(function(error) {
-      callback(error);
-    });
-  };
+      };
 
-  // Run test.
-  seleniumHelpers.loadTestPage(driver)
-  .then(function() {
-    t.pass('Page loaded');
-    return driver.executeAsyncScript(testDefinition);
-  })
-  .then(function(error) {
-    var errorMessage = (error) ? 'error: ' + error.toString() : 'no errors';
-    t.ok(!error, 'Result:  ' + errorMessage);
-    // We should not really need this due to using an error callback if a
-    // candidate is found but I'm not sure we will catch due to async nature
-    // of this, hence why this is kept.
-    return driver.executeScript('return window.candidates');
-  })
-  .then(function(candidates) {
-    if (candidates.length === 0) {
-      t.pass('No candidates generated');
-    } else {
-      candidates.forEach(function(candidate) {
-        t.fail('Candidate found: ' + candidate);
+      // Run test.
+      seleniumHelpers.loadTestPage(driver)
+      .then(function() {
+        t.pass('Page loaded');
+        return driver.executeAsyncScript(testDefinition);
+      })
+      .then(function(error) {
+        var errorMessage = (error) ? 'error: ' + error.toString() : 'no errors';
+        t.ok(!error, 'Result:  ' + errorMessage);
+        // We should not really need this due to using an error callback if a
+        // candidate is found but I'm not sure we will catch due to async nature
+        // of this, hence why this is kept.
+        return driver.executeScript('return window.candidates');
+      })
+      .then(function(candidates) {
+        if (candidates.length === 0) {
+          t.pass('No candidates generated');
+        } else {
+          candidates.forEach(function(candidate) {
+            t.fail('Candidate found: ' + candidate);
+          });
+        }
+      })
+      .then(function() {
+        t.end();
+      })
+      .then(null, function(err) {
+        if (err !== 'skip-test') {
+          t.fail(err);
+        }
+        t.end();
       });
-    }
-  })
-  .then(function() {
-    t.end();
-  })
-  .then(null, function(err) {
-    if (err !== 'skip-test') {
-      t.fail(err);
-    }
-    t.end();
-  });
-});
+    });
 
 test('static generateCertificate method', function(t) {
   var driver = seleniumHelpers.buildDriver();
@@ -2145,12 +1987,9 @@ test('ontrack', {skip: process.env.BROWSER === 'firefox'}, function(t) {
     };
 
     var addCandidate = function(pc, event) {
-      if (event.candidate) {
-        var cand = new RTCIceCandidate(event.candidate);
-        pc.addIceCandidate(cand).catch(function(err) {
-          tc.fail('addIceCandidate ' + err.toString());
-        });
-      }
+      pc.addIceCandidate(event.candidate).catch(function(err) {
+        tc.fail('addIceCandidate ' + err.toString());
+      });
     };
     pc1.onicecandidate = function(event) {
       addCandidate(pc2, event);
@@ -2262,12 +2101,6 @@ test('Non-module logging to console still works', function(t) {
         'RTCPeerConnection is a function']);
     window.testsEqualArray.push([typeof navigator.getUserMedia, 'function',
         'getUserMedia is a function']);
-    window.testsEqualArray.push(
-      [typeof window.adapter.browserShim.attachMediaStream, 'function',
-        'attachMediaStream is a function']);
-    window.testsEqualArray.push(
-      [typeof window.adapter.browserShim.reattachMediaStream,'function',
-        'reattachMediaSteam is a function']);
     window.testsEqualArray.push([typeof window.adapter.browserDetails.browser,
         'string', 'browserDetails.browser browser is a string']);
     window.testsEqualArray.push([typeof window.adapter.browserDetails.version,
